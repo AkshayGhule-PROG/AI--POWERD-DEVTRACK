@@ -82,7 +82,7 @@ const ingestDocument = async (doc, project, req) => {
 
     const result = await aiService.ingestDocument({
       documentId: doc._id.toString(),
-      filePath: doc.filePath,
+      filePath: path.resolve(doc.filePath),
       fileType: doc.fileType,
       namespace: doc.vectorNamespace,
       projectId: project._id.toString(),

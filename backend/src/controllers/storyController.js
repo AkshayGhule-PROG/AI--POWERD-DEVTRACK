@@ -1,6 +1,7 @@
 const Epic = require('../models/Epic');
 const Story = require('../models/Story');
 const Project = require('../models/Project');
+const Document = require('../models/Document');
 const AuditLog = require('../models/AuditLog');
 const aiService = require('../services/aiService');
 
@@ -44,6 +45,15 @@ const generateStories = async (req, res) => {
   const project = await Project.findById(req.params.projectId);
   if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
+  // Block generation if no processed SRS document exists for this project
+  const processedDoc = await Document.findOne({ project: project._id, status: 'processed', isActive: true });
+  if (!processedDoc) {
+    return res.status(400).json({
+      success: false,
+      message: 'No processed SRS document found. Please upload and process an SRS/MD document first before generating stories.',
+    });
+  }
+
   const result = await aiService.generateStories({
     projectId: project._id.toString(),
     projectName: project.name,
@@ -71,7 +81,7 @@ const generateStories = async (req, res) => {
 // @route   POST /api/stories/save/:projectId
 // @access  Private (Scrum Master)
 const saveGeneratedStories = async (req, res) => {
-  const { epics, stories, tasks } = req.body;
+  const { epics, stories, tasks, subtasks } = req.body;
 
   const project = await Project.findById(req.params.projectId);
   if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
@@ -80,6 +90,7 @@ const saveGeneratedStories = async (req, res) => {
   const epicMap = {};
 
   // Save epics
+  let epicIdx = 0;
   for (const epicData of (epics || [])) {
     const epic = await Epic.create({
       project: project._id,
@@ -87,7 +98,7 @@ const saveGeneratedStories = async (req, res) => {
       description: epicData.description,
       sprint: epicData.sprint || 'backlog',
       priority: epicData.priority || 'medium',
-      epicKey: `${project.key}-EPIC-${Date.now()}`,
+      epicKey: `${project.key}-EPIC-${Date.now()}-${epicIdx++}`,
       aiGenerated: true,
       status: 'approved',
     });
@@ -97,10 +108,18 @@ const saveGeneratedStories = async (req, res) => {
 
   // Save stories and tasks
   const savedStories = [];
+  const storyTempMap = {}; // map tempId -> saved _id for subtask linking
+  let storyIdx = 0;
   for (const storyData of [...(stories || []), ...(tasks || [])]) {
     const epicRef = storyData.epicTempId
       ? epicMap[storyData.epicTempId]
       : savedEpics[0]?._id;
+
+    // Sanitize sprint/priority to valid enum values
+    const validSprints = ['S1', 'S2', 'S3', 'S4', 'backlog'];
+    const validPriorities = ['highest', 'high', 'medium', 'low', 'lowest'];
+    const sprint = validSprints.includes(storyData.sprint) ? storyData.sprint : 'backlog';
+    const priority = validPriorities.includes(storyData.priority) ? storyData.priority : 'medium';
 
     const story = await Story.create({
       project: project._id,
@@ -112,15 +131,45 @@ const saveGeneratedStories = async (req, res) => {
         criterion: typeof c === 'string' ? c : c.criterion,
         met: false,
       })),
-      sprint: storyData.sprint || 'backlog',
-      priority: storyData.priority || 'medium',
+      sprint,
+      priority,
       storyPoints: storyData.storyPoints || 0,
-      storyKey: `${project.key}-${Date.now()}`,
+      storyKey: `${project.key}-${Date.now()}-${storyIdx++}`,
       aiGenerated: true,
       status: 'approved',
       reporter: req.user.id,
     });
     savedStories.push(story);
+    if (storyData.tempId) storyTempMap[storyData.tempId] = story._id;
+  }
+
+  // Save subtasks linked to parent stories
+  for (const sub of (subtasks || [])) {
+    const parentId = sub.parentTempId ? storyTempMap[sub.parentTempId] : savedStories[0]?._id;
+    const epicRef = sub.epicTempId ? epicMap[sub.epicTempId] : savedEpics[0]?._id;
+    const validSprints = ['S1', 'S2', 'S3', 'S4', 'backlog'];
+    const validPriorities = ['highest', 'high', 'medium', 'low', 'lowest'];
+    const sprint = validSprints.includes(sub.sprint) ? sub.sprint : 'backlog';
+    const priority = validPriorities.includes(sub.priority) ? sub.priority : 'medium';
+    await Story.create({
+      project: project._id,
+      epic: epicRef,
+      parentStory: parentId,
+      type: 'subtask',
+      title: sub.title,
+      description: sub.description || '',
+      acceptanceCriteria: (sub.acceptanceCriteria || []).map((c) => ({
+        criterion: typeof c === 'string' ? c : c.criterion,
+        met: false,
+      })),
+      sprint,
+      priority,
+      storyPoints: sub.storyPoints || 1,
+      storyKey: `${project.key}-SUB-${Date.now()}-${storyIdx++}`,
+      aiGenerated: true,
+      status: 'approved',
+      reporter: req.user.id,
+    });
   }
 
   // Update project counts

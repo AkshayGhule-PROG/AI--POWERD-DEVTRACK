@@ -27,6 +27,7 @@ Generate a complete Agile breakdown for the "{module_name}" module. Return ONLY 
   ],
   "stories": [
     {{
+      "tempId": "story-1",
       "epicTempId": "epic-1",
       "type": "story",
       "title": "As a [role], I can [action] so that [benefit]",
@@ -39,6 +40,7 @@ Generate a complete Agile breakdown for the "{module_name}" module. Return ONLY 
   ],
   "tasks": [
     {{
+      "tempId": "task-1",
       "epicTempId": "epic-1",
       "type": "task",
       "title": "Technical task title",
@@ -48,14 +50,28 @@ Generate a complete Agile breakdown for the "{module_name}" module. Return ONLY 
       "priority": "medium",
       "storyPoints": 3
     }}
+  ],
+  "subtasks": [
+    {{
+      "parentTempId": "story-1",
+      "epicTempId": "epic-1",
+      "type": "subtask",
+      "title": "Specific subtask title",
+      "description": "Specific implementation detail",
+      "acceptanceCriteria": ["Subtask done criterion"],
+      "sprint": "S1",
+      "priority": "medium",
+      "storyPoints": 1
+    }}
   ]
 }}
 
 Rules:
-- Generate 1-2 epics, 3-5 user stories, 3-5 technical tasks
-- User stories must follow "As a [role], I can [action] so that [benefit]" format
+- Generate 1-2 epics, 3-5 user stories, 3-5 technical tasks, 4-8 subtasks
+- User stories must follow \"As a [role], I can [action] so that [benefit]\" format
 - Each story/task must have 2-4 specific, testable acceptance criteria
-- Assign realistic story points (1, 2, 3, 5, 8, 13)
+- Subtasks are small implementation steps that belong to a parent story or task (use parentTempId)
+- Assign realistic story points: stories(3-8), tasks(2-5), subtasks(1-2)
 - Sprint values: S1, S2, S3 or S4
 - Priority values: highest, high, medium, low, lowest
 - Return ONLY the JSON object, no markdown, no explanation"""
@@ -120,15 +136,36 @@ class LLMService:
             )
         return self._client
 
+    # Free models to try in order if one is rate-limited or unavailable
+    FREE_MODELS = [
+        "google/gemma-3-27b-it:free",
+        "google/gemma-3-12b-it:free",
+        "google/gemma-3-9b-it:free",
+        "mistralai/mistral-7b-instruct:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+    ]
+
     def _call_llm(self, prompt: str, temperature: float = 0.3) -> str:
         client = self._get_client()
-        response = client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=temperature,
-            max_tokens=self.max_tokens,
-        )
-        return response.choices[0].message.content
+        # Try primary model first, then fallbacks
+        models_to_try = [self.model] + [m for m in self.FREE_MODELS if m != self.model]
+        last_error = None
+        for model in models_to_try:
+            try:
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature,
+                    max_tokens=self.max_tokens,
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                err = str(e)
+                if '429' in err or '404' in err or 'rate' in err.lower() or 'not found' in err.lower():
+                    last_error = e
+                    continue  # try next model
+                raise  # non-rate-limit error, re-raise immediately
+        raise last_error
 
     def generate_stories(
         self,

@@ -9,7 +9,7 @@ def parse_document(file_path: str, file_type: str) -> str:
         return _parse_pdf(file_path)
     elif file_type in ("docx", "doc"):
         return _parse_docx(file_path)
-    elif file_type == "txt":
+    elif file_type in ("txt", "md"):
         return _parse_txt(file_path)
     else:
         raise ValueError(f"Unsupported file type: {file_type}")

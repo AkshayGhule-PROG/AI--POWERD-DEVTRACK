@@ -23,7 +23,7 @@ const DocumentSchema = new mongoose.Schema(
     },
     fileType: {
       type: String,
-      enum: ['pdf', 'docx', 'txt', 'doc'],
+      enum: ['pdf', 'docx', 'txt', 'doc', 'md'],
       required: true,
     },
     filePath: {

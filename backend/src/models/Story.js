@@ -68,6 +68,11 @@ const StorySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+    parentStory: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Story',
+      default: null,
+    },
     // Jira
     jiraIssueId: { type: String },
     jiraIssueKey: { type: String },

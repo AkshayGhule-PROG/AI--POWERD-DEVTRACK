@@ -33,6 +33,21 @@ AI-POWERDDEVTRACK/
 - Python 3.10+
 - MongoDB Atlas account (already configured)
 
+### Recommended: Run Everything From Root (one command)
+
+```bash
+# from AI-POWERDDEVTRACK/
+npm install
+npm run dev:all
+```
+
+This starts all services together:
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:5000`
+- AI Service: `http://localhost:8000`
+
+If you see `EADDRINUSE` for a port (for example `5000`), that means an old server is already running on that port. Stop the old process and run `npm run dev:all` again.
+
 ### 1. Backend
 
 ```bash

@@ -4,6 +4,9 @@ import Layout from '@/components/Layout'
 import HomePage from '@/pages/Home'
 import LoginPage from '@/pages/Login'
 import RegisterPage from '@/pages/Register'
+import ResetPasswordPage from '@/pages/ResetPassword'
+import AuthCallbackPage from '@/pages/AuthCallback'
+import VerifyEmailPage from '@/pages/VerifyEmail'
 import DashboardPage from '@/pages/Dashboard'
 import ProjectsPage from '@/pages/Projects'
 import ProjectDetailPage from '@/pages/ProjectDetail'
@@ -29,6 +32,15 @@ export default function App() {
       <Route path="/" element={<PublicRoute><HomePage /></PublicRoute>} />
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+
+      {/* Password reset — public, no auth needed */}
+      <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+
+      {/* Email verification — public */}
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+
+      {/* OAuth callback — handles token from backend redirect */}
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
       {/* Protected app */}
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>

@@ -3,216 +3,330 @@ import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useProjectStore } from '@/store/projectStore'
 import api from '@/lib/api'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   FolderIcon, RocketLaunchIcon, DocumentTextIcon, SparklesIcon,
-  ArrowTrendingUpIcon, ClockIcon, ExclamationTriangleIcon,
+  ArrowTrendingUpIcon, ClockIcon, ChevronRightIcon, BoltIcon,
+  CheckCircleIcon, ArrowRightIcon,
 } from '@heroicons/react/24/outline'
-import { getProgressColor, formatDate, formatRelativeTime } from '@/lib/utils'
+import { getProgressColor, formatRelativeTime } from '@/lib/utils'
+import { useThemeStore } from '@/store/themeStore'
+
+const fadeUp   = { hidden:{ opacity:0, y:24 }, show:{ opacity:1, y:0 } }
+const fadeScale = { hidden:{ opacity:0, scale:0.92 }, show:{ opacity:1, scale:1 } }
+const stagger  = { show:{ transition:{ staggerChildren:0.07 } } }
+
+const getGreeting = () => {
+  const h = new Date().getHours()
+  return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'
+}
+
+const statusMap = {
+  active:    { cls:'badge-done',         label:'Active' },
+  planning:  { cls:'badge-draft',        label:'Planning' },
+  paused:    { cls:'badge-partial',      label:'Paused' },
+  completed: { cls:'badge-in-progress',  label:'Completed' },
+  archived:  { cls:'badge-not-started',  label:'Archived' },
+}
+const StatusBadge = ({ status }) => {
+  const s = statusMap[status] || statusMap.archived
+  return <span className={`badge ${s.cls} capitalize`}>{s.label}</span>
+}
+
+/* ── Animated Stat Card ── */
+function StatCard({ label, value, Icon, accent, delay = 0, sub }) {
+  return (
+    <motion.div variants={fadeScale} transition={{ duration:0.55, delay, ease:[0.16,1,0.3,1] }}
+      whileHover={{ y:-4,  boxShadow:`0 12px 36px ${accent}28` }}
+      style={{ background:'var(--bg-card)', border:'1px solid var(--border-card)', borderRadius:'16px', padding:'20px', position:'relative', overflow:'hidden', cursor:'default', boxShadow:'var(--shadow-card)', transition:'box-shadow 0.3s,transform 0.3s' }}>
+
+      {/* Top accent line */}
+      <div style={{ position:'absolute', top:0, left:0, right:0, height:'2px', background:`linear-gradient(90deg,${accent},${accent}77,transparent)` }} />
+      {/* Radial glow */}
+      <motion.div style={{ position:'absolute', top:'-30px', right:'-30px', width:'100px', height:'100px', borderRadius:'50%', background:`radial-gradient(circle,${accent}22 0%,transparent 70%)`, pointerEvents:'none' }}
+        animate={{ scale:[1,1.2,1] }} transition={{ duration:3, repeat:Infinity, ease:'easeInOut', delay }} />
+      {/* Bottom shimmer */}
+      <div style={{ position:'absolute', bottom:0, left:'10%', right:'10%', height:'1px', background:`linear-gradient(90deg,transparent,${accent}44,transparent)` }} />
+
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', position:'relative' }}>
+        <div>
+          <p style={{ fontSize:'11px', fontWeight:600, color:'var(--text-muted)', marginBottom:'8px', letterSpacing:'0.04em', textTransform:'uppercase' }}>{label}</p>
+          <motion.p style={{ fontSize:'2.2rem', fontWeight:900, lineHeight:1, color:'var(--text-primary)', letterSpacing:'-0.05em' }}
+            initial={{ opacity:0, scale:0.5 }} animate={{ opacity:1, scale:1 }} transition={{ duration:0.6, delay:delay+0.2, ease:[0.34,1.56,0.64,1] }}>
+            {value}
+          </motion.p>
+          {sub && <p style={{ fontSize:'11px', color:'var(--text-muted)', marginTop:'4px' }}>{sub}</p>}
+        </div>
+        <motion.div style={{ width:'42px', height:'42px', borderRadius:'12px', display:'flex', alignItems:'center', justifyContent:'center', background:`linear-gradient(135deg,${accent}30,${accent}18)`, border:`1px solid ${accent}35` }}
+          whileHover={{ scale:1.1, rotate:8 }} transition={{ type:'spring', stiffness:400 }}>
+          <Icon style={{ width:'18px', height:'18px', color:accent }} />
+        </motion.div>
+      </div>
+    </motion.div>
+  )
+}
+
+/* ── Project Card ── */
+function ProjectCard({ project, index }) {
+  const progress = project.stats?.completedStories
+    ? Math.round((project.stats.completedStories / project.stats.totalStories) * 100)
+    : 0
+  const color = project.color || '#6366f1'
+
+  return (
+    <motion.div variants={fadeUp} transition={{ duration:0.5, ease:[0.16,1,0.3,1] }}>
+      <Link to={`/projects/${project._id}`} style={{ textDecoration:'none', display:'block' }}>
+        <motion.div
+          whileHover={{ y:-3, boxShadow:`0 12px 36px ${color}20`, borderColor:`${color}50` }}
+          style={{ background:'var(--bg-card)', border:'1px solid var(--border-card)', borderRadius:'16px', padding:'16px 18px', cursor:'pointer', transition:'all 0.25s', display:'flex', alignItems:'center', gap:'14px', position:'relative', overflow:'hidden', boxShadow:'var(--shadow-card)' }}>
+
+          {/* Left color bar */}
+          <div style={{ position:'absolute', left:0, top:'15%', bottom:'15%', width:'3px', borderRadius:'99px', background:`linear-gradient(180deg,${color},${color}66)` }} />
+
+          {/* Project avatar */}
+          <motion.div whileHover={{ scale:1.08, rotate:4 }} transition={{ type:'spring', stiffness:400 }}
+            style={{ width:'44px', height:'44px', borderRadius:'12px', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:800, fontSize:'14px', flexShrink:0, background:`linear-gradient(135deg,${color},${color}bb)`, boxShadow:`0 4px 14px ${color}50`, letterSpacing:'-0.02em' }}>
+            {project.key?.slice(0,2)}
+          </motion.div>
+
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'6px' }}>
+              <p style={{ fontWeight:700, color:'var(--text-primary)', fontSize:'14px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'200px', letterSpacing:'-0.02em' }}>{project.name}</p>
+              <StatusBadge status={project.status} />
+            </div>
+            {/* Progress */}
+            <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+              <div style={{ flex:1, height:'4px', borderRadius:'99px', background:'var(--progress-bg)', overflow:'hidden' }}>
+                <motion.div style={{ height:'100%', borderRadius:'99px', background:`linear-gradient(90deg,${color},${color}bb)` }}
+                  initial={{ width:0 }} animate={{ width:`${progress}%` }}
+                  transition={{ duration:1.2, delay: index * 0.1 + 0.3, ease:[0.16,1,0.3,1] }} />
+              </div>
+              <span style={{ fontSize:'11px', fontWeight:600, color:'var(--text-muted)', flexShrink:0 }}>{progress}%</span>
+              {project.stats?.totalStories > 0 && (
+                <span style={{ fontSize:'11px', color:'var(--text-faint)', flexShrink:0 }}>{project.stats.completedStories}/{project.stats.totalStories}</span>
+              )}
+            </div>
+          </div>
+
+          <ChevronRightIcon style={{ width:'14px', height:'14px', color:'var(--text-faint)', flexShrink:0 }} />
+        </motion.div>
+      </Link>
+    </motion.div>
+  )
+}
 
 export default function DashboardPage() {
   const { user } = useAuthStore()
   const { setProjects } = useProjectStore()
+  const { theme } = useThemeStore()
+  const isLight = theme === 'light'
 
   const { data: projectsData } = useQuery({
     queryKey: ['projects'],
-    queryFn: async () => {
-      const { data } = await api.get('/projects')
-      setProjects(data.data)
-      return data.data
-    },
+    queryFn: async () => { const { data } = await api.get('/projects'); setProjects(data.data); return data.data },
   })
-
   const { data: overviewData } = useQuery({
     queryKey: ['dashboard-overview'],
-    queryFn: async () => {
-      const { data } = await api.get('/dashboard/overview')
-      return data.data
-    },
+    queryFn: async () => { const { data } = await api.get('/dashboard/overview'); return data.data },
   })
 
   const projects = projectsData || []
-  const activeProjects = projects.filter((p) => p.status === 'active')
+  const activeProjects = projects.filter(p => p.status === 'active')
 
   const stats = [
-    { label: 'Total Projects', value: projects.length, icon: FolderIcon, color: 'text-primary-400', bg: 'bg-primary-600/10' },
-    { label: 'Active Projects', value: activeProjects.length, icon: ArrowTrendingUpIcon, color: 'text-emerald-400', bg: 'bg-emerald-600/10' },
-    { label: 'Total Stories', value: overviewData?.totalStories || 0, icon: RocketLaunchIcon, color: 'text-yellow-400', bg: 'bg-yellow-600/10' },
-    { label: 'Completed', value: overviewData?.completedStories || 0, icon: SparklesIcon, color: 'text-purple-400', bg: 'bg-purple-600/10' },
+    { label:'Projects',        value:projects.length,                   Icon:FolderIcon,         accent:'#6366f1', delay:0,    sub:'total' },
+    { label:'Active',          value:activeProjects.length,             Icon:ArrowTrendingUpIcon, accent:'#10b981', delay:0.07, sub:'in progress' },
+    { label:'Stories',         value:overviewData?.totalStories || 0,   Icon:RocketLaunchIcon,    accent:'#f59e0b', delay:0.14, sub:'generated' },
+    { label:'Completed',       value:overviewData?.completedStories||0, Icon:SparklesIcon,        accent:'#8b5cf6', delay:0.21, sub:'done' },
   ]
 
   return (
-    <div className="p-6 max-w-7xl mx-auto animate-fade-in">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">
-          Good {getGreeting()}, {user?.name?.split(' ')[0]} 👋
-        </h1>
-        <p className="text-gray-400 mt-1">Here's your DevTrack overview for today.</p>
-      </div>
+    <div style={{ padding:'28px 32px', maxWidth:'1400px', margin:'0 auto', minHeight:'100%' }}>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {stats.map((stat) => (
-          <div key={stat.label} className="card p-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm text-gray-400">{stat.label}</p>
-                <p className="text-3xl font-bold text-white mt-1">{stat.value}</p>
-              </div>
-              <div className={`${stat.bg} p-2 rounded-lg`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
-              </div>
-            </div>
+      {/* ── Greeting Banner ── */}
+      <motion.div initial={{ opacity:0, y:-20 }} animate={{ opacity:1, y:0 }}
+        transition={{ duration:0.65, ease:[0.16,1,0.3,1] }}
+        style={{ marginBottom:'28px', borderRadius:'20px', padding:'28px 32px', background:'linear-gradient(135deg,#4f46e5 0%,#7c3aed 55%,#6d28d9 100%)', boxShadow:'0 8px 40px rgba(79,70,229,0.35)', position:'relative', overflow:'hidden' }}>
+
+        {/* Dot mesh */}
+        <div style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(rgba(255,255,255,0.07) 1px,transparent 1px)', backgroundSize:'26px 26px', pointerEvents:'none' }} />
+        {/* Orbs */}
+        <motion.div animate={{ y:[-8,8,-8], x:[4,-4,4] }} transition={{ duration:6, repeat:Infinity, ease:'easeInOut' }}
+          style={{ position:'absolute', right:'-20px', top:'-40px', width:'200px', height:'200px', borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.2) 0%,transparent 70%)', filter:'blur(20px)', pointerEvents:'none' }} />
+        <motion.div animate={{ y:[5,-5,5] }} transition={{ duration:4.5, repeat:Infinity, ease:'easeInOut', delay:1 }}
+          style={{ position:'absolute', right:'160px', bottom:'-25px', width:'110px', height:'110px', borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.14) 0%,transparent 70%)', filter:'blur(14px)', pointerEvents:'none' }} />
+        <motion.div animate={{ x:[-6,6,-6], y:[3,-3,3] }} transition={{ duration:7, repeat:Infinity, ease:'easeInOut', delay:0.5 }}
+          style={{ position:'absolute', left:'-30px', bottom:'-30px', width:'150px', height:'150px', borderRadius:'50%', background:'radial-gradient(circle,rgba(255,255,255,0.1) 0%,transparent 70%)', filter:'blur(20px)', pointerEvents:'none' }} />
+
+        <div style={{ position:'relative', zIndex:2 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'6px' }}>
+            <motion.div style={{ width:'6px', height:'6px', borderRadius:'50%', background:'#a5b4fc' }}
+              animate={{ scale:[1,1.6,1], opacity:[1,0.5,1] }} transition={{ duration:1.8, repeat:Infinity }} />
+            <p style={{ color:'rgba(199,210,254,0.85)', fontSize:'12px', fontWeight:600, letterSpacing:'0.04em', textTransform:'uppercase' }}>
+              {new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })}
+            </p>
           </div>
-        ))}
-      </div>
+          <h1 style={{ fontSize:'1.6rem', fontWeight:900, color:'#fff', marginBottom:'4px', letterSpacing:'-0.035em', lineHeight:1.1 }}>
+            Good {getGreeting()}, {user?.name?.split(' ')[0]} 👋
+          </h1>
+          <p style={{ color:'rgba(199,210,254,0.75)', fontSize:'14px' }}>Here's your DevTrack overview — let's build something great today.</p>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Projects list */}
-        <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Active Projects</h2>
-            <Link to="/projects" className="text-sm text-primary-400 hover:text-primary-300">
-              View all →
+          {/* Quick action */}
+          <div style={{ display:'flex', gap:'10px', marginTop:'18px' }}>
+            <Link to="/projects" style={{ display:'inline-flex', alignItems:'center', gap:'6px', padding:'8px 16px', borderRadius:'10px', background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.2)', color:'white', textDecoration:'none', fontSize:'13px', fontWeight:600, backdropFilter:'blur(8px)', transition:'all 0.2s' }}
+              onMouseEnter={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.22)'; e.currentTarget.style.transform='translateY(-1px)' }}
+              onMouseLeave={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.15)'; e.currentTarget.style.transform='none' }}>
+              <FolderIcon style={{ width:'14px', height:'14px' }} /> Projects
+            </Link>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ── Stats Grid ── */}
+      <motion.div variants={stagger} initial="hidden" animate="show"
+        style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'14px', marginBottom:'28px' }}
+        className="lg:grid-cols-4">
+        {stats.map((s) => <StatCard key={s.label} {...s} />)}
+      </motion.div>
+
+      {/* ── Main content grid ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:'22px' }} className="lg:grid-cols-3">
+
+        {/* Projects (2/3) */}
+        <div style={{ gridColumn:'span 1' }} className="lg:col-span-2">
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'14px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+              <FolderIcon style={{ width:'16px', height:'16px', color:'#818cf8' }} />
+              <h2 style={{ fontSize:'15px', fontWeight:700, color:'var(--text-primary)', letterSpacing:'-0.025em' }}>Recent Projects</h2>
+              {projects.length > 0 && (
+                <span style={{ fontSize:'11px', fontWeight:700, padding:'2px 7px', borderRadius:'6px', background:'rgba(99,102,241,0.15)', color:'#818cf8', border:'1px solid rgba(99,102,241,0.2)' }}>{projects.length}</span>
+              )}
+            </div>
+            <Link to="/projects"
+              style={{ fontSize:'12px', fontWeight:600, color:'#818cf8', textDecoration:'none', display:'flex', alignItems:'center', gap:'4px', padding:'5px 10px', borderRadius:'8px', background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.18)', transition:'all 0.2s' }}
+              onMouseEnter={e=>{ e.currentTarget.style.background='rgba(99,102,241,0.15)'; e.currentTarget.style.color='#a5b4fc' }}
+              onMouseLeave={e=>{ e.currentTarget.style.background='rgba(99,102,241,0.08)'; e.currentTarget.style.color='#818cf8' }}>
+              View all <ArrowRightIcon style={{ width:'12px', height:'12px' }} />
             </Link>
           </div>
 
           {projects.length === 0 ? (
-            <div className="card p-12 text-center">
-              <FolderIcon className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400 mb-4">No projects yet. Create your first project!</p>
-              <Link to="/projects" className="btn-primary">
-                Create Project
-              </Link>
-            </div>
+            <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }}
+              style={{ background:'var(--bg-card)', border:'1px solid var(--border-card)', borderRadius:'18px', padding:'56px 24px', textAlign:'center', boxShadow:'var(--shadow-card)' }}>
+              <motion.div animate={{ y:[0,-10,0] }} transition={{ duration:3.5, repeat:Infinity, ease:'easeInOut' }}
+                style={{ width:'60px', height:'60px', borderRadius:'18px', margin:'0 auto 16px', display:'flex', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.1))', border:'1px solid rgba(99,102,241,0.2)' }}>
+                <FolderIcon style={{ width:'28px', height:'28px', color:'#818cf8' }} />
+              </motion.div>
+              <p style={{ fontWeight:700, color:'var(--text-primary)', marginBottom:'6px', fontSize:'16px', letterSpacing:'-0.02em' }}>No projects yet</p>
+              <p style={{ color:'var(--text-muted)', fontSize:'13px', marginBottom:'20px' }}>Create your first project to get started!</p>
+              <Link to="/projects" className="btn-primary">Create Project</Link>
+            </motion.div>
           ) : (
-            <div className="space-y-3">
-              {projects.slice(0, 5).map((project) => (
-                <Link
-                  key={project._id}
-                  to={`/projects/${project._id}`}
-                  className="card p-4 flex items-center gap-4 hover:border-gray-700 transition-colors block"
-                >
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0"
-                    style={{ backgroundColor: project.color || '#6366f1' }}
-                  >
-                    {project.key?.slice(0, 2)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium text-white truncate">{project.name}</p>
-                      <StatusBadge status={project.status} />
-                    </div>
-                    <div className="flex items-center gap-3 mt-1.5">
-                      <div className="flex-1 progress-bar">
-                        <div
-                          className={`progress-fill ${getProgressColor(project.completionPercentage)}`}
-                          style={{ width: `${project.completionPercentage}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-gray-400 shrink-0">
-                        {project.completionPercentage}%
-                      </span>
-                    </div>
-                  </div>
-                </Link>
+            <motion.div variants={stagger} initial="hidden" animate="show" style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+              {projects.slice(0, 6).map((project, i) => (
+                <ProjectCard key={project._id} project={project} index={i} />
               ))}
-            </div>
+            </motion.div>
           )}
         </div>
 
-        {/* Quick actions */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-white">Quick Actions</h2>
-          <div className="space-y-3">
-            <Link to="/projects" className="card p-4 flex items-center gap-3 hover:border-gray-700 transition-colors block group">
-              <div className="p-2 rounded-lg bg-primary-600/10 text-primary-400 group-hover:bg-primary-600/20">
-                <FolderIcon className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="font-medium text-white">New Project</p>
-                <p className="text-xs text-gray-500">Start a new DevTrack project</p>
-              </div>
-            </Link>
+        {/* Sidebar (1/3) */}
+        <div style={{ display:'flex', flexDirection:'column', gap:'18px' }}>
 
-            {/* Upload SRS — admin & scrum_master only */}
-            {['admin', 'scrum_master'].includes(user?.role) ? (
-              <Link
-                to={projects.length > 0 ? `/projects/${projects[0]._id}/documents` : '/projects'}
-                className="card p-4 flex items-center gap-3 hover:border-gray-700 transition-colors block group"
-              >
-                <div className="p-2 rounded-lg bg-yellow-600/10 text-yellow-400 group-hover:bg-yellow-600/20">
-                  <DocumentTextIcon className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-white">Upload SRS</p>
-                  <p className="text-xs text-gray-500">Ingest your requirements document</p>
-                </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 shrink-0">
-                  {user?.role === 'admin' ? 'Admin' : 'Scrum Master'}
-                </span>
-              </Link>
-            ) : (
-              <div className="card p-4 flex items-center gap-3 opacity-60 cursor-not-allowed">
-                <div className="p-2 rounded-lg bg-gray-600/10 text-gray-500">
-                  <DocumentTextIcon className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-white">Upload SRS</p>
-                  <p className="text-xs text-gray-500">Only Admin or Scrum Master can upload</p>
-                </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-500 border border-gray-500/20 shrink-0">Restricted</span>
-              </div>
-            )}
-
-            <Link
-              to={projects.length > 0 ? `/projects/${projects[0]._id}/stories` : '/projects'}
-              className="card p-4 flex items-center gap-3 hover:border-gray-700 transition-colors block group"
-            >
-              <div className="p-2 rounded-lg bg-purple-600/10 text-purple-400 group-hover:bg-purple-600/20">
-                <SparklesIcon className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="font-medium text-white">Generate Stories</p>
-                <p className="text-xs text-gray-500">AI-powered Jira story generation</p>
-              </div>
-            </Link>
-          </div>
-
-          {/* Recent activity */}
-          <div className="mt-6">
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Recent Projects</h3>
-            <div className="space-y-2">
-              {projects.slice(0, 3).map((p) => (
-                <div key={p._id} className="flex items-center gap-2 text-sm">
-                  <div className="w-2 h-2 rounded-full bg-primary-500 shrink-0" />
-                  <span className="text-gray-300 truncate">{p.name}</span>
-                  <span className="text-gray-600 shrink-0 ml-auto">{formatRelativeTime(p.updatedAt)}</span>
+          {/* Quick stats */}
+          <motion.div initial={{ opacity:0, x:20 }} animate={{ opacity:1, x:0 }}
+            transition={{ delay:0.3, duration:0.55, ease:[0.16,1,0.3,1] }}
+            style={{ background:'var(--bg-card)', border:'1px solid var(--border-card)', borderRadius:'16px', padding:'20px', boxShadow:'var(--shadow-card)',  position:'relative', overflow:'hidden' }}>
+            <div style={{ position:'absolute', top:0, left:0, right:0, height:'2px', background:'linear-gradient(90deg,#6366f1,#8b5cf6,transparent)' }} />
+            <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'16px' }}>
+              <SparklesIcon style={{ width:'15px', height:'15px', color:'#a78bfa' }} />
+              <h3 style={{ fontSize:'14px', fontWeight:700, color:'var(--text-primary)', letterSpacing:'-0.02em' }}>AI Overview</h3>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+              {[
+                { label:'Stories generated', value: overviewData?.totalStories || 0, color:'#6366f1' },
+                { label:'Completed stories', value: overviewData?.completedStories || 0, color:'#10b981' },
+                { label:'In progress',        value: (overviewData?.totalStories || 0) - (overviewData?.completedStories || 0), color:'#f59e0b' },
+              ].map((item) => (
+                <div key={item.label} style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                    <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:item.color, boxShadow:`0 0 6px ${item.color}88` }} />
+                    <span style={{ fontSize:'12px', color:'var(--text-secondary)' }}>{item.label}</span>
+                  </div>
+                  <motion.span style={{ fontSize:'14px', fontWeight:800, color:'var(--text-primary)', letterSpacing:'-0.03em' }}
+                    initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ duration:0.4, delay:0.5 }}>
+                    {item.value}
+                  </motion.span>
                 </div>
               ))}
             </div>
-          </div>
+            {/* Progress bar */}
+            {overviewData?.totalStories > 0 && (
+              <div style={{ marginTop:'16px' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'6px' }}>
+                  <span style={{ fontSize:'11px', color:'var(--text-muted)' }}>Completion rate</span>
+                  <span style={{ fontSize:'11px', fontWeight:700, color:'#10b981' }}>
+                    {Math.round((overviewData.completedStories / overviewData.totalStories) * 100)}%
+                  </span>
+                </div>
+                <div style={{ height:'5px', borderRadius:'99px', background:'var(--progress-bg)', overflow:'hidden' }}>
+                  <motion.div style={{ height:'100%', borderRadius:'99px', background:'linear-gradient(90deg,#6366f1,#10b981)' }}
+                    initial={{ width:0 }} animate={{ width:`${Math.round((overviewData.completedStories / overviewData.totalStories) * 100)}%` }}
+                    transition={{ duration:1.5, delay:0.6, ease:[0.16,1,0.3,1] }} />
+                </div>
+              </div>
+            )}
+          </motion.div>
+
+          {/* Today's tip */}
+          <motion.div initial={{ opacity:0, x:20 }} animate={{ opacity:1, x:0 }}
+            transition={{ delay:0.4, duration:0.55, ease:[0.16,1,0.3,1] }}
+            style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.1),rgba(139,92,246,0.07))', border:'1px solid rgba(99,102,241,0.2)', borderRadius:'16px', padding:'18px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'10px' }}>
+              <motion.div style={{ width:'28px', height:'28px', borderRadius:'8px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center' }}
+                animate={{ boxShadow:['0 0 8px rgba(99,102,241,0.4)','0 0 20px rgba(99,102,241,0.7)','0 0 8px rgba(99,102,241,0.4)'] }}
+                transition={{ duration:2.5, repeat:Infinity, ease:'easeInOut' }}>
+                <BoltIcon style={{ width:'14px', height:'14px', color:'white' }} />
+              </motion.div>
+              <span style={{ fontSize:'12px', fontWeight:700, color:'#818cf8', letterSpacing:'0.04em', textTransform:'uppercase' }}>AI Tip</span>
+            </div>
+            <p style={{ fontSize:'13px', color:'var(--text-secondary)', lineHeight:1.65 }}>
+              Upload a requirements document to let AI instantly generate user stories with acceptance criteria for your next sprint.
+            </p>
+            <Link to="/projects" style={{ display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'12px', fontWeight:600, color:'#818cf8', textDecoration:'none', marginTop:'10px', transition:'color 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.color='#a5b4fc'}
+              onMouseLeave={e => e.currentTarget.style.color='#818cf8'}>
+              Try it now <ArrowRightIcon style={{ width:'12px', height:'12px' }} />
+            </Link>
+          </motion.div>
+
+          {/* Active projects quick links */}
+          {activeProjects.length > 0 && (
+            <motion.div initial={{ opacity:0, x:20 }} animate={{ opacity:1, x:0 }}
+              transition={{ delay:0.5, duration:0.55, ease:[0.16,1,0.3,1] }}
+              style={{ background:'var(--bg-card)', border:'1px solid var(--border-card)', borderRadius:'16px', padding:'18px', boxShadow:'var(--shadow-card)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'14px' }}>
+                <ArrowTrendingUpIcon style={{ width:'15px', height:'15px', color:'#34d399' }} />
+                <h3 style={{ fontSize:'14px', fontWeight:700, color:'var(--text-primary)', letterSpacing:'-0.02em' }}>Active Now</h3>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                {activeProjects.slice(0, 3).map((p) => (
+                  <Link key={p._id} to={`/projects/${p._id}`}
+                    style={{ display:'flex', alignItems:'center', gap:'10px', padding:'8px 10px', borderRadius:'10px', textDecoration:'none', background:'var(--bg-hover)', border:'1px solid transparent', transition:'all 0.2s' }}
+                    onMouseEnter={e=>{ e.currentTarget.style.borderColor='rgba(99,102,241,0.2)'; e.currentTarget.style.background='rgba(99,102,241,0.06)' }}
+                    onMouseLeave={e=>{ e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='var(--bg-hover)' }}>
+                    <div style={{ width:'28px', height:'28px', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', background:`linear-gradient(135deg,${p.color||'#6366f1'},${p.color||'#6366f1'}aa)`, color:'white', fontSize:'10px', fontWeight:800, flexShrink:0 }}>
+                      {p.key?.slice(0,2)}
+                    </div>
+                    <span style={{ fontSize:'13px', fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{p.name}</span>
+                    <ChevronRightIcon style={{ width:'12px', height:'12px', color:'var(--text-faint)', flexShrink:0 }} />
+                  </Link>
+                ))}
+              </div>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>
   )
-}
-
-const StatusBadge = ({ status }) => {
-  const map = {
-    active: 'badge-done',
-    planning: 'badge-draft',
-    paused: 'badge-partial',
-    completed: 'badge-in-progress',
-    archived: 'badge-not-started',
-  }
-  return <span className={`badge ${map[status] || 'badge-not-started'} capitalize`}>{status}</span>
-}
-
-const getGreeting = () => {
-  const h = new Date().getHours()
-  if (h < 12) return 'morning'
-  if (h < 17) return 'afternoon'
-  return 'evening'
 }

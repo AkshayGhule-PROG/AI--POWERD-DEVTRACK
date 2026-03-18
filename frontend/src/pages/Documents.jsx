@@ -119,8 +119,8 @@ export default function DocumentsPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto animate-fade-in">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">SRS Documents</h1>
-        <p className="text-gray-400 text-sm">
+        <h1 className="text-2xl font-bold text-gray-900">SRS Documents</h1>
+        <p className="text-gray-500 text-sm">
           {processed.length} processed · {documents.length} total
         </p>
       </div>
@@ -192,8 +192,8 @@ export default function DocumentsPage() {
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="font-medium text-white text-sm truncate">{doc.originalName}</p>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${statusColors[doc.status]}`}>
+                  <p className="font-semibold text-gray-900 text-sm truncate">{doc.originalName}</p>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${statusColors[doc.status]}`}>
                     {doc.status}
                   </span>
                 </div>
@@ -221,7 +221,7 @@ export default function DocumentsPage() {
 
                 {doc.status === 'processing' && (
                   <div className="w-full mt-2 progress-bar">
-                    <div className="progress-fill bg-blue-500 animate-pulse" style={{ width: '60%' }} />
+                    <div className="progress-fill animate-pulse" style={{ width: '60%', background:'linear-gradient(90deg, #3b82f6, #6366f1)' }} />
                   </div>
                 )}
               </div>

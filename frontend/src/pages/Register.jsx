@@ -1,16 +1,18 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BoltIcon, ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/outline'
+import { BoltIcon, EyeIcon, EyeSlashIcon, SunIcon, MoonIcon } from '@heroicons/react/24/outline'
 import { useAuthStore } from '@/store/authStore'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
+import { motion, AnimatePresence } from 'framer-motion'
+import gsap from 'gsap'
+import { useThemeStore } from '@/store/themeStore'
 
 const GitHubIcon = () => (
   <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
     <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.74.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02 0 2.04.13 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.65.25 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58C20.57 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/>
   </svg>
 )
-
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="w-4 h-4">
     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -20,196 +22,282 @@ const GoogleIcon = () => (
   </svg>
 )
 
-const MicrosoftIcon = () => (
-  <svg viewBox="0 0 24 24" className="w-4 h-4">
-    <path fill="#F25022" d="M1 1h10v10H1z"/>
-    <path fill="#00A4EF" d="M13 1h10v10H13z"/>
-    <path fill="#7FBA00" d="M1 13h10v10H1z"/>
-    <path fill="#FFB900" d="M13 13h10v10H13z"/>
-  </svg>
-)
+function NeuralCanvas({ isLight }) {
+  const canvasRef = useRef(null)
+  const isLightRef = useRef(isLight)
+  useEffect(() => { isLightRef.current = isLight }, [isLight])
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    let W, H, nodes, raf
+    const mouse = { x: -999, y: -999 }
+    const init = () => {
+      W = canvas.width = window.innerWidth
+      H = canvas.height = window.innerHeight
+      nodes = Array.from({ length: Math.min(Math.floor(W / 14), 75) }, () => ({
+        x: Math.random() * W, y: Math.random() * H,
+        vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
+        r: Math.random() * 1.8 + 0.6,
+        hue: [Math.random() > 0.6 ? [99,102,241] : Math.random() > 0.5 ? [139,92,246] : [59,130,246]][0],
+        a: Math.random() * 0.45 + 0.1,
+      }))
+    }
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H)
+      const lm = isLightRef.current ? 4 : 1
+      nodes.forEach((n, i) => {
+        const mdx = n.x - mouse.x, mdy = n.y - mouse.y
+        const md = Math.sqrt(mdx * mdx + mdy * mdy)
+        if (md < 130) { n.vx += mdx / md * 0.025; n.vy += mdy / md * 0.025 }
+        const sp = Math.sqrt(n.vx * n.vx + n.vy * n.vy)
+        if (sp > 1.1) { n.vx *= 0.92; n.vy *= 0.92 }
+        n.x += n.vx; n.y += n.vy
+        if (n.x < 0 || n.x > W) n.vx *= -1
+        if (n.y < 0 || n.y > H) n.vy *= -1
+        for (let j = i + 1; j < nodes.length; j++) {
+          const m = nodes[j], ex = n.x - m.x, ey = n.y - m.y, d = ex * ex + ey * ey
+          if (d < 22000) {
+            ctx.beginPath(); ctx.moveTo(n.x, n.y); ctx.lineTo(m.x, m.y)
+            ctx.strokeStyle = `rgba(${n.hue[0]},${n.hue[1]},${n.hue[2]},${(1 - d / 22000) * 0.22 * lm})`
+            ctx.lineWidth = isLightRef.current ? 1 : 0.65; ctx.stroke()
+          }
+        }
+        ctx.beginPath()
+        ctx.arc(n.x, n.y, n.r * (isLightRef.current ? 1.4 : 1), 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(${n.hue[0]},${n.hue[1]},${n.hue[2]},${Math.min(n.a * lm, 0.9)})`
+        ctx.fill()
+      })
+      raf = requestAnimationFrame(draw)
+    }
+    const onMouse = (e) => { mouse.x = e.clientX; mouse.y = e.clientY }
+    init(); draw()
+    window.addEventListener('resize', init)
+    window.addEventListener('mousemove', onMouse)
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', init); window.removeEventListener('mousemove', onMouse) }
+  }, [])
+  return <canvas ref={canvasRef} style={{ position:'fixed', top:0, left:0, width:'100%', height:'100%', pointerEvents:'none', zIndex:0, opacity: isLight ? 0.85 : 0.5 }} />
+}
 
-const roles = [
-  { value: 'admin',        label: 'Admin',        desc: 'Full access, manage team & settings' },
-  { value: 'scrum_master', label: 'Scrum Master',  desc: 'Manage sprints, generate stories' },
-  { value: 'developer',   label: 'Developer',     desc: 'View & update assigned stories' },
+function MagBtn({ children, className, style, onClick, disabled, type = 'button' }) {
+  const ref = useRef(null)
+  const onMove = useCallback((e) => {
+    if (!ref.current) return
+    const r = ref.current.getBoundingClientRect()
+    gsap.to(ref.current, { x:(e.clientX-r.left-r.width/2)*0.35, y:(e.clientY-r.top-r.height/2)*0.35, duration:0.4, ease:'power2.out' })
+  }, [])
+  const onLeave = useCallback(() => gsap.to(ref.current, { x:0, y:0, duration:0.6, ease:'elastic.out(1,0.5)' }), [])
+  return (
+    <motion.button ref={ref} type={type} className={className} style={style}
+      onClick={onClick} disabled={disabled} onMouseMove={onMove} onMouseLeave={onLeave}
+      whileHover={{ scale:1.02 }} whileTap={{ scale:0.97 }}
+      transition={{ type:'spring', stiffness:400, damping:25 }}>
+      {children}
+    </motion.button>
+  )
+}
+
+function AuthThemeToggle() {
+  const { theme, toggleTheme } = useThemeStore()
+  return (
+    <motion.button onClick={toggleTheme} whileHover={{ scale:1.08 }} whileTap={{ scale:0.92 }}
+      style={{ position:'fixed', top:'18px', right:'18px', zIndex:200, width:'36px', height:'36px', borderRadius:'10px', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-card)', border:'1px solid var(--border-card)', color:'var(--text-secondary)', cursor:'pointer', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', boxShadow:'0 4px 16px rgba(0,0,0,0.15)' }}>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span key={theme} initial={{ rotate:-45, opacity:0, scale:0.6 }} animate={{ rotate:0, opacity:1, scale:1 }}
+          exit={{ rotate:45, opacity:0, scale:0.6 }} transition={{ duration:0.2 }} style={{ display:'flex' }}>
+          {theme === 'dark' ? <SunIcon style={{ width:'16px', height:'16px' }} /> : <MoonIcon style={{ width:'16px', height:'16px' }} />}
+        </motion.span>
+      </AnimatePresence>
+    </motion.button>
+  )
+}
+
+const ROLES = [
+  { value:'developer',       label:'Developer',       icon:'💻', sub:'Build & ship code' },
+  { value:'product_manager', label:'Product Manager', icon:'📋', sub:'Define the roadmap' },
+  { value:'scrum_master',    label:'Scrum Master',    icon:'🏃', sub:'Facilitate sprints' },
+  { value:'designer',        label:'Designer',        icon:'🎨', sub:'Craft the experience' },
 ]
 
 export default function RegisterPage() {
-  const [form, setForm]     = useState({ name: '', email: '', password: '', role: 'developer' })
+  const [form, setForm] = useState({ name:'', email:'', password:'', role:'developer' })
+  const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [focusedField, setFocusedField] = useState(null)
   const { setAuth } = useAuthStore()
+  const { theme } = useThemeStore()
   const navigate = useNavigate()
+  const isLight = theme === 'light'
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (form.password.length < 6) { toast.error('Password must be at least 6 characters'); return }
     setLoading(true)
     try {
       const { data } = await api.post('/auth/register', form)
       setAuth(data.user, data.token)
-      toast.success('Account created successfully!')
+      toast.success(`Welcome to DevTrack, ${data.user.name}!`)
       navigate('/dashboard')
-    } catch {}
+    } catch (err) { toast.error(err.response?.data?.message || 'Registration failed') }
     finally { setLoading(false) }
   }
 
   const handleSocial = (provider) => {
-    toast(`${provider} OAuth coming soon`, { icon: '🔧' })
+    const base = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+    window.location.href = `${base}${provider === 'GitHub' ? '/api/auth/github' : '/api/auth/google'}`
   }
 
+  const inputStyle = (field) => ({
+    background: focusedField === field ? (isLight ? 'rgba(99,102,241,0.05)' : 'rgba(99,102,241,0.08)') : 'var(--bg-input)',
+    border: focusedField === field ? '1px solid rgba(99,102,241,0.55)' : '1px solid var(--border-input)',
+    boxShadow: focusedField === field ? '0 0 0 3px rgba(99,102,241,0.12), 0 0 24px rgba(99,102,241,0.1)' : 'none',
+    transition:'all 0.25s ease',
+  })
+
+  const container = { hidden:{ opacity:0 }, show:{ opacity:1, transition:{ staggerChildren:0.07 } } }
+  const item = { hidden:{ opacity:0, y:16 }, show:{ opacity:1, y:0, transition:{ duration:0.4, ease:[0.16,1,0.3,1] } } }
+
   return (
-    <div className="min-h-screen flex" style={{ background: '#f5f7fa' }}>
+    <div style={{ minHeight:'100vh', overflowY:'auto', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-page)', position:'relative' }}>
+      <NeuralCanvas isLight={isLight} />
+      <AuthThemeToggle />
 
-      {/* ── Left decorative panel ────────────────────────── */}
-      <div className="hidden lg:flex w-[44%] relative flex-col justify-between p-12 overflow-hidden"
-           style={{ background: 'linear-gradient(145deg, #f5f3ff, #eef2ff)', borderRight: '1px solid #e2e8f0' }}>
-        <div className="absolute inset-0 pointer-events-none"
-             style={{ backgroundImage: 'radial-gradient(rgba(124,58,237,0.05) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+      {/* Ambient orbs */}
+      <motion.div style={{ position:'fixed', top:'-15%', right:'-8%', width:'600px', height:'600px', borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.14) 0%,transparent 70%)', filter:'blur(80px)', pointerEvents:'none', zIndex:1 }}
+        animate={{ x:[0,-35,0], y:[0,20,0], scale:[1,1.07,1] }} transition={{ duration:11, repeat:Infinity, ease:'easeInOut' }} />
+      <motion.div style={{ position:'fixed', bottom:'-15%', left:'-8%', width:'500px', height:'500px', borderRadius:'50%', background:'radial-gradient(circle,rgba(99,102,241,0.12) 0%,transparent 70%)', filter:'blur(80px)', pointerEvents:'none', zIndex:1 }}
+        animate={{ x:[0,30,0], y:[0,-20,0], scale:[1,1.06,1] }} transition={{ duration:13, repeat:Infinity, ease:'easeInOut', delay:2.5 }} />
 
-        {/* Logo */}
-        <div className="relative flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-glow"
-               style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
-            <BoltIcon className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-bold text-lg tracking-tight text-gray-900">Dev<span className="text-indigo-600">Track</span></span>
-        </div>
+      {/* ── Centered form ── */}
+      <div style={{ position:'relative', zIndex:2, width:'100%', maxWidth:'480px', padding:'24px 20px' }}>
+        <motion.div style={{ width:'100%' }}
+          variants={container} initial="hidden" animate="show">
 
-        {/* Highlights */}
-        <div className="relative z-10 space-y-5">
-          {[
-            { title: 'AI-Powered Backlog', desc: 'Generate epics, stories and tasks from your SRS in seconds.' },
-            { title: 'Jira & GitHub Ready', desc: 'Push your backlog to Jira and track code evidence automatically.' },
-            { title: 'Real-time Updates',   desc: 'Live sprint boards and WebSocket-powered status changes.' },
-          ].map(({ title, desc }) => (
-            <div key={title} className="flex items-start gap-3">
-              <div className="w-5 h-5 rounded-full mt-0.5 flex items-center justify-center shrink-0"
-                   style={{ background: '#eef2ff', border: '1px solid #c7d2fe' }}>
-                <div className="w-2 h-2 rounded-full bg-indigo-500" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-800 mb-0.5">{title}</p>
-                <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+          {/* Logo + back row */}
+          <motion.div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'20px' }} variants={item}>
+            <Link to="/" style={{ display:'flex', alignItems:'center', gap:'10px', textDecoration:'none' }}>
+              <motion.div style={{ width:'36px', height:'36px', borderRadius:'10px', display:'flex', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow:'0 4px 18px rgba(99,102,241,0.4)' }}
+                animate={{ boxShadow:['0 4px 18px rgba(99,102,241,0.4)','0 4px 28px rgba(99,102,241,0.7)','0 4px 18px rgba(99,102,241,0.4)'] }}
+                transition={{ duration:2.5, repeat:Infinity, ease:'easeInOut' }}>
+                <BoltIcon style={{ width:'18px', height:'18px', color:'white' }} />
+              </motion.div>
+              <span style={{ fontWeight:800, fontSize:'16px', letterSpacing:'-0.03em', color:'var(--text-primary)' }}>Dev<span className="text-gradient">Track</span></span>
+            </Link>
+            <Link to="/" style={{ display:'inline-flex', alignItems:'center', gap:'6px', fontSize:'12px', fontWeight:600, color:'var(--text-muted)', textDecoration:'none', padding:'6px 12px', borderRadius:'8px', border:'1px solid var(--border)', background:'var(--bg-card)', backdropFilter:'blur(8px)', transition:'all 0.2s' }}
+              onMouseEnter={e=>{ e.currentTarget.style.color='#a5b4fc'; e.currentTarget.style.borderColor='rgba(99,102,241,0.35)' }}
+              onMouseLeave={e=>{ e.currentTarget.style.color='var(--text-muted)'; e.currentTarget.style.borderColor='var(--border)' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              Home
+            </Link>
+          </motion.div>
 
-        <p className="relative text-xs text-gray-400">Trusted by engineering teams worldwide</p>
-      </div>
+          {/* Glass card */}
+          <motion.div style={{ background:'var(--bg-card)', border:'1px solid var(--border-card)', borderRadius:'24px', padding:'32px', backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)', boxShadow: isLight ? '0 8px 40px rgba(0,0,0,0.1),0 1px 3px rgba(0,0,0,0.06)' : '0 8px 40px rgba(0,0,0,0.4),0 0 0 1px rgba(255,255,255,0.02)', position:'relative', overflow:'hidden' }}
+            variants={item}>
 
-      {/* ── Right auth panel ────────────────────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 relative">
-        <div className="absolute top-6 left-6">
-          <Link to="/" className="inline-flex items-center gap-2 text-xs text-gray-400 hover:text-gray-700 transition-colors group">
-            <ArrowLeftIcon className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-            Home
-          </Link>
-        </div>
+            <div style={{ position:'absolute', top:0, left:'20%', right:'20%', height:'1px', background:'linear-gradient(90deg,transparent,rgba(139,92,246,0.55),rgba(99,102,241,0.4),transparent)', pointerEvents:'none' }} />
+            <div style={{ position:'absolute', top:'-30px', right:'-30px', width:'80px', height:'80px', background:'radial-gradient(circle,rgba(139,92,246,0.15) 0%,transparent 70%)', pointerEvents:'none' }} />
 
-        <div className="w-full max-w-[400px] animate-fade-in">
-          {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-2.5 justify-center mb-8">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                 style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
-              <BoltIcon className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-base text-gray-900">Dev<span className="text-indigo-600">Track</span></span>
-          </div>
+            {/* Header */}
+            <motion.div style={{ marginBottom:'22px' }} variants={item}>
+              <h1 style={{ fontSize:'1.5rem', fontWeight:900, letterSpacing:'-0.04em', color:'var(--text-primary)', lineHeight:1.1, marginBottom:'5px' }}>Create your account</h1>
+              <p style={{ fontSize:'13px', color:'var(--text-muted)' }}>Start building smarter with AI-powered dev tools</p>
+            </motion.div>
 
-          <div className="mb-8">
-            <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight mb-1.5">Create your account</h1>
-            <p className="text-sm text-gray-500">Free forever — no credit card required</p>
-          </div>
+            {/* Social buttons */}
+            <motion.div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'16px' }} variants={item}>
+              {[['GitHub', <GitHubIcon key="gh"/>], ['Google', <GoogleIcon key="go"/>]].map(([p, icon]) => (
+                <motion.button key={p} onClick={() => handleSocial(p)}
+                  whileHover={{ scale:1.03, y:-1 }} whileTap={{ scale:0.97 }}
+                  style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', padding:'10px 0', borderRadius:'12px', fontSize:'13px', fontWeight:600, cursor:'pointer', background:'var(--bg-hover)', border:'1px solid var(--border-card)', color:'var(--text-primary)', transition:'border-color 0.2s,box-shadow 0.2s' }}
+                  onMouseEnter={e=>{ e.currentTarget.style.borderColor='rgba(99,102,241,0.3)'; e.currentTarget.style.boxShadow='0 4px 12px rgba(99,102,241,0.1)' }}
+                  onMouseLeave={e=>{ e.currentTarget.style.borderColor='var(--border-card)'; e.currentTarget.style.boxShadow='none' }}>
+                  {icon}{p}
+                </motion.button>
+              ))}
+            </motion.div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="input-label">Full name</label>
-              <input type="text" value={form.name}
-                onChange={e => setForm({ ...form, name: e.target.value })}
-                className="input" placeholder="Aryan Ghule" required autoFocus />
-            </div>
+            <motion.div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'16px' }} variants={item}>
+              <div style={{ flex:1, height:'1px', background:'var(--border)' }} />
+              <span style={{ fontSize:'11px', color:'var(--text-muted)', whiteSpace:'nowrap' }}>or with email</span>
+              <div style={{ flex:1, height:'1px', background:'var(--border)' }} />
+            </motion.div>
 
-            <div className="space-y-1.5">
-              <label className="input-label">Email address</label>
-              <input type="email" value={form.email}
-                onChange={e => setForm({ ...form, email: e.target.value })}
-                className="input" placeholder="you@company.com" required />
-            </div>
+            <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+              <motion.div variants={item}>
+                <label className="input-label">Full name</label>
+                <input type="text" className="input" placeholder="Jane Doe"
+                  value={form.name} onChange={e => setForm(p => ({ ...p, name:e.target.value }))}
+                  onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)}
+                  style={inputStyle('name')} required />
+              </motion.div>
 
-            <div className="space-y-1.5">
-              <label className="input-label">Password</label>
-              <input type="password" value={form.password}
-                onChange={e => setForm({ ...form, password: e.target.value })}
-                className="input" placeholder="Min 6 characters" minLength={6} required />
-            </div>
+              <motion.div variants={item}>
+                <label className="input-label">Email address</label>
+                <input type="email" className="input" placeholder="you@company.com"
+                  value={form.email} onChange={e => setForm(p => ({ ...p, email:e.target.value }))}
+                  onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
+                  style={inputStyle('email')} required />
+              </motion.div>
 
-            {/* Role selector */}
-            <div className="space-y-1.5">
-              <label className="input-label">Your role</label>
-              <div className="grid grid-cols-1 gap-2">
-                {roles.map(({ value, label, desc }) => (
-                  <label key={value}
-                    className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all"
-                    style={{
-                    background: form.role === value ? '#eef2ff' : '#ffffff',
-                      border: form.role === value ? '1px solid #a5b4fc' : '1px solid #e5e7eb',
-                    }}>
-                    <input type="radio" name="role" value={value} checked={form.role === value}
-                      onChange={() => setForm({ ...form, role: value })} className="sr-only" />
-                    <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0"
-                         style={{ border: form.role === value ? '2px solid #6366f1' : '2px solid #d1d5db' }}>
-                      {form.role === value && <div className="w-2 h-2 rounded-full bg-indigo-500" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800">{label}</p>
-                      <p className="text-[11px] text-gray-500 truncate">{desc}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
+              <motion.div variants={item}>
+                <label className="input-label">Password</label>
+                <div style={{ position:'relative' }}>
+                  <input type={showPw ? 'text' : 'password'} className="input pr-10" placeholder="At least 6 characters"
+                    value={form.password} onChange={e => setForm(p => ({ ...p, password:e.target.value }))}
+                    onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
+                    style={inputStyle('password')} required />
+                  <button type="button" onClick={() => setShowPw(!showPw)}
+                    style={{ position:'absolute', right:'12px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)' }}>
+                    {showPw ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                  </button>
+                </div>
+              </motion.div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-semibold text-[0.9375rem] text-white transition-all hover:-translate-y-[1px] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none mt-2"
-              style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow: '0 0 20px rgba(99,102,241,0.25), inset 0 1px 0 rgba(255,255,255,0.12)' }}
-            >
-              {loading ? 'Creating account...' : <><span>Create account</span><ArrowRightIcon className="w-4 h-4" /></>}
-            </button>
-          </form>
+              {/* Role selector */}
+              <motion.div variants={item}>
+                <label className="input-label">Your role</label>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+                  {ROLES.map((r, i) => (
+                    <motion.button key={r.value} type="button" onClick={() => setForm(p => ({ ...p, role:r.value }))}
+                      initial={{ opacity:0, scale:0.9 }} animate={{ opacity:1, scale:1 }}
+                      transition={{ delay:0.35 + i*0.06 }}
+                      whileHover={{ scale:1.03, y:-1 }} whileTap={{ scale:0.97 }}
+                      style={{ display:'flex', alignItems:'center', gap:'8px', padding:'10px 12px', borderRadius:'12px', cursor:'pointer', textAlign:'left', background: form.role === r.value ? 'rgba(99,102,241,0.18)' : 'var(--bg-hover)', border: form.role === r.value ? '1px solid rgba(99,102,241,0.45)' : '1px solid var(--border-card)', boxShadow: form.role === r.value ? '0 0 14px rgba(99,102,241,0.18)' : 'none', transition:'all 0.2s' }}>
+                      <span style={{ fontSize:'16px', lineHeight:1 }}>{r.icon}</span>
+                      <div>
+                        <p style={{ fontSize:'12px', fontWeight:700, color: form.role === r.value ? '#a5b4fc' : 'var(--text-primary)', lineHeight:1.2 }}>{r.label}</p>
+                        <p style={{ fontSize:'10px', color: form.role === r.value ? '#818cf8' : 'var(--text-muted)', lineHeight:1.3, marginTop:'1px' }}>{r.sub}</p>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </motion.div>
 
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs text-gray-400">or continue with</span>
-            <div className="flex-1 h-px bg-gray-200" />
-          </div>
+              <motion.div variants={item}>
+                <MagBtn type="submit" disabled={loading} className="btn-primary w-full btn-lg" style={{ marginTop:'4px' }}>
+                  {loading ? (
+                    <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'8px' }}>
+                      <motion.span style={{ display:'inline-block', width:'14px', height:'14px', borderRadius:'50%', border:'2px solid rgba(255,255,255,0.3)', borderTop:'2px solid white' }}
+                        animate={{ rotate:360 }} transition={{ duration:0.8, repeat:Infinity, ease:'linear' }} />
+                      Creating account…
+                    </span>
+                  ) : 'Get started →'}
+                </MagBtn>
+              </motion.div>
+            </form>
 
-          {/* Social signup buttons */}
-          <div className="grid grid-cols-3 gap-2">
-            <button type="button" onClick={() => handleSocial('GitHub')}
-              className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all hover:-translate-y-[1px] active:scale-[0.98] bg-white border border-gray-200">
-              <GitHubIcon />
-              <span className="hidden sm:inline">GitHub</span>
-            </button>
-            <button type="button" onClick={() => handleSocial('Google')}
-              className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all hover:-translate-y-[1px] active:scale-[0.98] bg-white border border-gray-200">
-              <GoogleIcon />
-              <span className="hidden sm:inline">Google</span>
-            </button>
-            <button type="button" onClick={() => handleSocial('Microsoft')}
-              className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all hover:-translate-y-[1px] active:scale-[0.98] bg-white border border-gray-200">
-              <MicrosoftIcon />
-              <span className="hidden sm:inline">Microsoft</span>
-            </button>
-          </div>
+            <motion.p style={{ textAlign:'center', fontSize:'13px', marginTop:'16px', color:'var(--text-muted)' }} variants={item}>
+              Already have an account?{' '}
+              <Link to="/login" style={{ fontWeight:700, color:'#818cf8', textDecoration:'none' }}
+                onMouseEnter={e => e.currentTarget.style.color='#a5b4fc'}
+                onMouseLeave={e => e.currentTarget.style.color='#818cf8'}>Sign in →</Link>
+            </motion.p>
+          </motion.div>
 
-          <p className="text-center text-sm text-gray-500 mt-5">
-            Already have an account?{' '}
-            <Link to="/login" className="text-indigo-600 hover:text-indigo-700 font-medium transition-colors">Sign in</Link>
-          </p>
-        </div>
+          <motion.p style={{ textAlign:'center', fontSize:'11px', color:'var(--text-faint)', marginTop:'12px', paddingBottom:'16px' }} variants={item}>
+            By signing up you agree to our <span style={{ color:'#6366f1', cursor:'pointer' }}>Terms of Service</span>
+          </motion.p>
+        </motion.div>
       </div>
     </div>
   )

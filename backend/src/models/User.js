@@ -26,7 +26,7 @@ const UserSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['admin', 'scrum_master', 'developer'],
+      enum: ['admin', 'scrum_master', 'developer', 'product_manager', 'designer'],
       default: 'developer',
     },
     avatar: {
@@ -59,6 +59,10 @@ const UserSchema = new mongoose.Schema(
     },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
+    // Email OTP verification
+    isEmailVerified: { type: Boolean, default: false },
+    emailOTP: String,
+    emailOTPExpire: Date,
   },
   {
     timestamps: true,

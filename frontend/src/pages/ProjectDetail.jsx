@@ -89,7 +89,7 @@ export default function ProjectDetailPage() {
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-white">{project.name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
             <span className={`badge capitalize ${project.status === 'active' ? 'badge-done' : 'badge-draft'}`}>
               {project.status}
             </span>
@@ -132,8 +132,8 @@ export default function ProjectDetailPage() {
       {/* Overall progress */}
       <div className="card p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-white">Overall Progress</h3>
-          <span className="text-2xl font-bold text-white">{project.completionPercentage}%</span>
+          <h3 className="font-semibold text-gray-900">Overall Progress</h3>
+          <span className="text-2xl font-bold text-gray-900">{project.completionPercentage}%</span>
         </div>
         <div className="progress-bar h-3">
           <div
@@ -165,11 +165,11 @@ export default function ProjectDetailPage() {
         />
         <div className="card p-3 text-center">
           <p className="text-xs text-gray-500 mb-1">Members</p>
-          <p className="text-xl font-bold text-white">{project.memberCount}</p>
+          <p className="text-xl font-bold text-gray-900">{project.memberCount}</p>
         </div>
         <div className="card p-3 text-center">
           <p className="text-xs text-gray-500 mb-1">Stories Total</p>
-          <p className="text-xl font-bold text-white">{project.totalStories}</p>
+          <p className="text-xl font-bold text-gray-900">{project.totalStories}</p>
         </div>
       </div>
 
@@ -177,12 +177,12 @@ export default function ProjectDetailPage() {
         {/* Epic progress bars */}
         {epics.length > 0 && (
           <div className="card p-5">
-            <h3 className="font-semibold text-white mb-4">Epic Progress</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">Epic Progress</h3>
             <div className="space-y-4">
               {epics.map((epic) => (
                 <div key={epic._id}>
                   <div className="flex justify-between text-sm mb-1.5">
-                    <span className="text-gray-300 truncate mr-2">{epic.title}</span>
+                    <span className="text-gray-700 truncate mr-2">{epic.title}</span>
                     <span className="text-gray-400 shrink-0">{epic.completionPercentage}%</span>
                   </div>
                   <div className="progress-bar">
@@ -203,7 +203,7 @@ export default function ProjectDetailPage() {
         {/* Pie chart */}
         {pieData.length > 0 && (
           <div className="card p-5">
-            <h3 className="font-semibold text-white mb-4">Story Status Distribution</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">Story Status Distribution</h3>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie data={pieData} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
@@ -211,7 +211,7 @@ export default function ProjectDetailPage() {
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px', color: '#f3f4f6' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#0d0d1e', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '8px', color: '#e2e8f0', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -224,7 +224,7 @@ export default function ProjectDetailPage() {
 const Stat = ({ icon: Icon, label, value, color }) => (
   <div className="text-center">
     <Icon className={`w-5 h-5 mx-auto mb-1 ${color}`} />
-    <p className="text-lg font-bold text-white">{value}</p>
+    <p className="text-lg font-bold text-gray-900">{value}</p>
     <p className="text-xs text-gray-500">{label}</p>
   </div>
 )
@@ -233,7 +233,7 @@ const IntegrationCard = ({ label, connected, detail, icon }) => (
   <div className="card p-3">
     <div className="flex items-center gap-2 mb-1">
       <span className="text-lg">{icon}</span>
-      <span className="text-sm font-medium text-white">{label}</span>
+      <span className="text-sm font-medium text-gray-700">{label}</span>
     </div>
     <div className="flex items-center gap-1.5">
       <div className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-400' : 'bg-gray-600'}`} />

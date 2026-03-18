@@ -1,146 +1,242 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import {
   HomeIcon, FolderIcon, DocumentTextIcon, CogIcon, ArrowRightOnRectangleIcon,
   BellIcon, ChevronUpDownIcon, Bars3Icon, XMarkIcon,
   RocketLaunchIcon, CodeBracketIcon, ChartBarIcon, BoltIcon,
+  SunIcon, MoonIcon,
 } from '@heroicons/react/24/outline'
 import { useState } from 'react'
 import { useProjectStore } from '@/store/projectStore'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useThemeStore } from '@/store/themeStore'
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useThemeStore()
+  return (
+    <motion.button
+      onClick={toggleTheme}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      style={{
+        width: '32px', height: '32px', borderRadius: '9px',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--bg-card)', border: '1px solid var(--border-card)',
+        color: 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0,
+      }}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span key={theme}
+          initial={{ rotate: -45, opacity: 0, scale: 0.6 }}
+          animate={{ rotate: 0, opacity: 1, scale: 1 }}
+          exit={{ rotate: 45, opacity: 0, scale: 0.6 }}
+          transition={{ duration: 0.2 }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          {theme === 'dark'
+            ? <SunIcon style={{ width: '14px', height: '14px' }} />
+            : <MoonIcon style={{ width: '14px', height: '14px' }} />}
+        </motion.span>
+      </AnimatePresence>
+    </motion.button>
+  )
+}
 
 export default function Layout() {
   const { user, logout } = useAuthStore()
   const { currentProject } = useProjectStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const avatarLetter = user?.name?.[0]?.toUpperCase()
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#f5f7fa' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg-page)' }}>
 
-      {/* ── Sidebar ─────────────────────────────────────── */}
+      {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col transform transition-transform duration-200 lg:relative lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col transform transition-transform duration-300 lg:relative lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ width: '220px', background: '#ffffff', borderRight: '1px solid #e5e7eb', flexShrink: 0 }}
+        style={{
+          width: '228px',
+          background: 'var(--bg-sidebar)',
+          borderRight: '1px solid var(--border)',
+          flexShrink: 0,
+          boxShadow: '2px 0 20px rgba(0,0,0,0.4)',
+        }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-4 py-[18px]"
-             style={{ borderBottom: '1px solid #e5e7eb' }}>
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-               style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow: '0 0 12px rgba(99,102,241,0.25)' }}>
-            <BoltIcon className="w-4 h-4 text-white" />
+        <div className="flex items-center gap-3 px-4 py-[17px]"
+             style={{ borderBottom: '1px solid var(--border)' }}>
+          <div className="flex items-center justify-center shrink-0"
+               style={{ width:'32px', height:'32px', borderRadius:'10px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow:'0 4px 14px rgba(99,102,241,0.4)' }}>
+            <BoltIcon className="text-white" style={{ width:'18px', height:'18px' }} />
           </div>
-          <span className="font-bold text-[15px] tracking-tight text-gray-900">Dev<span className="text-primary-600">Track</span></span>
-          <button className="ml-auto lg:hidden text-gray-400 hover:text-gray-700" onClick={() => setSidebarOpen(false)}>
+          <span className="font-extrabold text-[15px] tracking-tight flex-1" style={{ color: 'var(--text-primary)' }}>
+            Dev<span className="text-gradient">Track</span>
+          </span>
+          {/* Live indicator */}
+          <span style={{ display: 'flex', position: 'relative', width: '8px', height: '8px', marginRight: '4px' }} className="hidden lg:flex">
+            <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#10b981', opacity: 0.6, animation: 'ping 2s ease-out infinite' }} />
+            <span style={{ position: 'relative', width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'block' }} />
+          </span>
+          <button className="lg:hidden transition-colors rounded-lg p-1"
+                  style={{ color: '#64748b' }}
+                  onClick={() => setSidebarOpen(false)}>
             <XMarkIcon className="w-4 h-4" />
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto no-scrollbar">
-          <NavLink to="/dashboard" end className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
-            <HomeIcon className="w-4 h-4 shrink-0" />
-            <span>Dashboard</span>
-          </NavLink>
-          <NavLink to="/projects" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
-            <FolderIcon className="w-4 h-4 shrink-0" />
-            <span>Projects</span>
-          </NavLink>
+        <nav className="flex-1 px-2.5 py-3 overflow-y-auto no-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {[
+            { to: '/dashboard', end: true, Icon: HomeIcon, label: 'Dashboard' },
+            { to: '/projects', end: false, Icon: FolderIcon, label: 'Projects' },
+          ].map(({ to, end, Icon, label }, i) => (
+            <motion.div key={to} initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.07 + 0.1, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
+              <NavLink to={to} end={end} className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
+                {({ isActive }) => (
+                  <>
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="flex-1">{label}</span>
+                    {isActive && (
+                      <span style={{ position: 'relative', width: '7px', height: '7px', display: 'flex', marginRight: '2px' }}>
+                        <motion.span
+                          style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#6366f1', opacity: 0.5 }}
+                          animate={{ scale: [1, 1.8, 1], opacity: [0.5, 0, 0.5] }}
+                          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                        />
+                        <span style={{ position: 'relative', width: '7px', height: '7px', borderRadius: '50%', background: '#818cf8', display: 'block' }} />
+                      </span>
+                    )}
+                  </>
+                )}
+              </NavLink>
+            </motion.div>
+          ))}
 
           {currentProject && (
-            <div className="pt-4 pb-1">
-              <p className="px-3 text-[10px] font-semibold uppercase tracking-widest mb-1.5"
-                 style={{ color: '#9ca3af' }}>
-                {currentProject.name.length > 18 ? currentProject.name.slice(0, 18) + '…' : currentProject.name}
-              </p>
-              <NavLink to={`/projects/${currentProject._id}`} end
-                className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
-                <ChartBarIcon className="w-4 h-4 shrink-0" />
-                <span>Overview</span>
-              </NavLink>
-              <NavLink to={`/projects/${currentProject._id}/stories`}
-                className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
-                <RocketLaunchIcon className="w-4 h-4 shrink-0" />
-                <span>Stories</span>
-              </NavLink>
-              <NavLink to={`/projects/${currentProject._id}/documents`}
-                className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
-                <DocumentTextIcon className="w-4 h-4 shrink-0" />
-                <span>Documents</span>
-              </NavLink>
-              <NavLink to={`/projects/${currentProject._id}/sprints`}
-                className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
-                <CodeBracketIcon className="w-4 h-4 shrink-0" />
-                <span>Sprints</span>
-              </NavLink>
-            </div>
+            <AnimatePresence>
+              <motion.div className="pt-3 pb-1"
+                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3 }}>
+                <div className="mx-3 mb-2 flex items-center gap-2">
+                  <div className="flex-1 h-px" style={{ background:'linear-gradient(90deg, rgba(99,102,241,0.2), transparent)' }} />
+                  <p className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color:'#6366f1' }}>
+                    {currentProject.name.length > 14 ? currentProject.name.slice(0, 14) + '\u2026' : currentProject.name}
+                  </p>
+                  <div className="flex-1 h-px" style={{ background:'linear-gradient(90deg, transparent, rgba(99,102,241,0.2))' }} />
+                </div>
+                {[
+                  { to: `/projects/${currentProject._id}`, end: true, Icon: ChartBarIcon, label: 'Overview' },
+                  { to: `/projects/${currentProject._id}/stories`, end: false, Icon: RocketLaunchIcon, label: 'Stories' },
+                  { to: `/projects/${currentProject._id}/documents`, end: false, Icon: DocumentTextIcon, label: 'Documents' },
+                  { to: `/projects/${currentProject._id}/sprints`, end: false, Icon: CodeBracketIcon, label: 'Sprints' },
+                ].map(({ to, end, Icon, label }, i) => (
+                  <motion.div key={to} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.06, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
+                    <NavLink to={to} end={end} className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
+                      {({ isActive }) => (
+                        <>
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span className="flex-1">{label}</span>
+                          {isActive && (
+                            <span style={{ position: 'relative', width: '7px', height: '7px', display: 'flex', marginRight: '2px' }}>
+                              <motion.span
+                                style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#6366f1', opacity: 0.5 }}
+                                animate={{ scale: [1, 1.8, 1], opacity: [0.5, 0, 0.5] }}
+                                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                              />
+                              <span style={{ position: 'relative', width: '7px', height: '7px', borderRadius: '50%', background: '#818cf8', display: 'block' }} />
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </AnimatePresence>
           )}
         </nav>
 
         {/* Bottom nav */}
-        <div className="px-2 pb-2 space-y-0.5" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '8px' }}>
+        <div className="px-2.5 pb-2.5 space-y-0.5"
+             style={{ borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
           <NavLink to="/settings" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
             <CogIcon className="w-4 h-4 shrink-0" />
             <span>Settings</span>
           </NavLink>
-          <button onClick={logout}
-            className="sidebar-item w-full text-left"
-            style={{ color: '#dc2626' }}
-            onMouseEnter={e => e.currentTarget.style.color = '#b91c1c'}
-            onMouseLeave={e => e.currentTarget.style.color = '#dc2626'}
-          >
+          <button onClick={logout} className="sidebar-item w-full text-left"
+                  onMouseEnter={e => { e.currentTarget.style.background='rgba(244,63,94,0.1)'; e.currentTarget.style.color='#fb7185'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background=''; e.currentTarget.style.color=''; }}>
             <ArrowRightOnRectangleIcon className="w-4 h-4 shrink-0" />
             <span>Sign Out</span>
           </button>
         </div>
 
         {/* User chip */}
-        <div className="px-3 py-3 flex items-center gap-2.5"
-             style={{ borderTop: '1px solid #e5e7eb', background: '#f9fafb' }}>
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-               style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
-            {user?.name?.[0]?.toUpperCase()}
+        <div className="px-3 py-3 flex items-center gap-2.5 cursor-pointer"
+             style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-hover)' }}>
+          <div className="flex items-center justify-center shrink-0 text-xs font-bold text-white"
+               style={{ width:'32px', height:'32px', borderRadius:'50%', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow:'0 2px 8px rgba(99,102,241,0.35)' }}>
+            {avatarLetter}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium text-gray-800 truncate">{user?.name}</p>
-            <p className="text-[11px] text-gray-400 capitalize">{user?.role?.replace('_', ' ')}</p>
+            <p className="text-[13px] font-semibold truncate" style={{ color:'var(--text-primary)' }}>{user?.name}</p>
+            <p className="text-[11px] capitalize" style={{ color:'var(--text-muted)' }}>{user?.role?.replace('_', ' ')}</p>
           </div>
-          <ChevronUpDownIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+          <ChevronUpDownIcon className="w-3.5 h-3.5 shrink-0" style={{ color:'#334155' }} />
         </div>
       </aside>
 
-      {/* ── Main area ────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* Main area */}
+      <div className="flex-1 flex flex-col min-w-0" style={{ minWidth: 0 }}>
         {/* Top bar */}
-        <header className="h-12 flex items-center px-4 gap-3 shrink-0"
-                style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #e5e7eb' }}>
-          <button className="lg:hidden text-gray-400 hover:text-gray-700 transition-colors"
+        <header className="flex items-center px-5 gap-3 shrink-0"
+                style={{ height:'52px', background:'var(--bg-header)', backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)', borderBottom:'1px solid var(--border)', boxShadow:'0 1px 0 rgba(255,255,255,0.03)' }}>
+          <button className="lg:hidden p-1.5 rounded-lg transition-colors"
+                  style={{ color:'#64748b' }}
                   onClick={() => setSidebarOpen(true)}>
             <Bars3Icon className="w-5 h-5" />
           </button>
           <div className="flex-1" />
-          <button className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all">
-            <BellIcon className="w-4 h-4" />
+          <ThemeToggle />
+          <button className="relative flex items-center justify-center rounded-xl transition-all"
+                  style={{ width:'36px', height:'36px', color:'#64748b' }}>
+            <BellIcon style={{ width:'18px', height:'18px' }} />
+            <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full" style={{ background:'#6366f1' }} />
           </button>
-          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer hover:bg-gray-100 transition-all">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white"
-                 style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
-              {user?.name?.[0]?.toUpperCase()}
+          <div className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl cursor-pointer transition-all ml-1"
+               style={{ background:'var(--bg-card)', border:'1px solid var(--border-card)' }}>
+            <div className="flex items-center justify-center font-bold text-white shrink-0"
+                 style={{ width:'28px', height:'28px', borderRadius:'50%', fontSize:'11px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow:'0 2px 6px rgba(99,102,241,0.3)' }}>
+              {avatarLetter}
             </div>
-            <span className="hidden md:block text-sm text-gray-600">{user?.name}</span>
+            <span className="hidden md:block text-[13px] font-medium" style={{ color:'var(--text-primary)' }}>{user?.name}</span>
           </div>
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto" style={{ background: '#f5f7fa' }}>
-          <Outlet />
+        <main className="flex-1 overflow-y-auto" style={{ background: 'var(--bg-page)' }}>
+          <motion.div key={typeof window !== 'undefined' ? window.location.pathname : ''}
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
+            <Outlet />
+          </motion.div>
         </main>
       </div>
 
       {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div className="fixed inset-0 z-40 lg:hidden"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }}
+            style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(5px)' }}
+            onClick={() => setSidebarOpen(false)} />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

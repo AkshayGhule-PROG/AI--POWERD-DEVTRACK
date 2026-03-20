@@ -359,7 +359,9 @@ const githubCallback = async (req, res) => {
     }));
     res.redirect(`${frontendUrl}/auth/callback?token=${token}&user=${userData}`);
   } catch (err) {
-    console.error('GitHub OAuth error:', err.message);
+    const status = err.response?.status;
+    const providerError = err.response?.data;
+    console.error('GitHub OAuth error:', err.message, status ? `(status: ${status})` : '', providerError || '');
     res.redirect(`${frontendUrl}/login?error=github_auth_failed`);
   }
 };
@@ -427,7 +429,9 @@ const googleCallback = async (req, res) => {
     }));
     res.redirect(`${frontendUrl}/auth/callback?token=${token}&user=${userData}`);
   } catch (err) {
-    console.error('Google OAuth error:', err.message);
+    const status = err.response?.status;
+    const providerError = err.response?.data;
+    console.error('Google OAuth error:', err.message, status ? `(status: ${status})` : '', providerError || '');
     res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
   }
 };

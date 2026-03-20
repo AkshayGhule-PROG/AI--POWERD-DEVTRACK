@@ -14,6 +14,7 @@ require('express-async-errors');
 const connectDB = require('./src/config/db');
 const { errorHandler, notFound } = require('./src/middleware/error');
 const logger = require('./src/config/logger');
+const { validateEnv } = require('./src/config/env');
 
 // Route imports
 const authRoutes = require('./src/routes/auth');
@@ -26,6 +27,7 @@ const dashboardRoutes = require('./src/routes/dashboard');
 const sprintRoutes = require('./src/routes/sprints');
 
 // Connect to MongoDB
+validateEnv(logger);
 connectDB();
 
 const app = express();

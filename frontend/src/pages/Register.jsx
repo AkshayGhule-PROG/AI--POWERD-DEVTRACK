@@ -134,9 +134,24 @@ export default function RegisterPage() {
     setLoading(true)
     try {
       const { data } = await api.post('/auth/register', form)
-      setAuth(data.user, data.token)
-      toast.success(`Welcome to DevTrack, ${data.user.name}!`)
-      navigate('/dashboard')
+      // New backend flow: registration requires OTP verification before login.
+      if (data?.requiresVerification) {
+        const q = new URLSearchParams({ email: data.email || form.email })
+        if (data.devOTP) q.set('devOTP', data.devOTP)
+        toast.success(data.message || 'Account created. Please verify your email.')
+        navigate(`/verify-email?${q.toString()}`)
+        return
+      }
+
+      // Backward-compatible path if API returns token directly.
+      if (data?.token && data?.user) {
+        setAuth(data.user, data.token)
+        toast.success(`Welcome to DevTrack, ${data.user.name}!`)
+        navigate('/dashboard')
+        return
+      }
+
+      toast.error('Unexpected response from server. Please try again.')
     } catch (err) { toast.error(err.response?.data?.message || 'Registration failed') }
     finally { setLoading(false) }
   }
